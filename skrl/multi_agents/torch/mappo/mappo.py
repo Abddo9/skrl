@@ -331,6 +331,32 @@ class MAPPO(MultiAgent):
             states, actions, rewards, next_states, terminated, truncated, infos, timestep, timesteps
         )
 
+        if "log" in infos and 'collected' in infos["log"] and 'delivered' in infos["log"] and 'collisions' in infos["log"]:
+            if not hasattr(self, "_cumulative_collected"):
+                _temp = sum(rewards.values())  # use the rewards to get the shape
+                self._cumulative_collected = torch.zeros_like(_temp, dtype=torch.float32)
+                self._cumulative_delivered = torch.zeros_like(_temp, dtype=torch.float32)
+                self._cumulative_collisions = torch.zeros_like(_temp, dtype=torch.float32)
+
+            self._cumulative_collected.add_(infos["log"]['collected'])
+            self._cumulative_delivered.add_(infos["log"]['delivered'])
+            self._cumulative_collisions.add_(infos["log"]['collisions'])
+
+            # check ended episodes
+            finished_episodes = (next(iter(terminated.values())) + next(iter(truncated.values()))).nonzero(as_tuple=False)
+            if finished_episodes.numel():
+
+                # storage cumulative collected, delivered and collisions
+                #TODO: do them with a running average like the reward
+                self.track_data('Collected / Total collected (mean)', self._cumulative_collected[finished_episodes].mean().item())
+                self.track_data('Delivered / Total delivered (mean)', self._cumulative_delivered[finished_episodes].mean().item())
+                self.track_data('Collisions / Total collisions (mean)', self._cumulative_collisions[finished_episodes].mean().item())
+
+                # reset the cumulative rewards and timesteps
+                self._cumulative_collected[finished_episodes] = 0
+                self._cumulative_delivered[finished_episodes] = 0
+                self._cumulative_collisions[finished_episodes] = 0
+
         if self.memories:
             shared_states = infos["shared_states"]
             self._current_shared_next_states = infos["shared_next_states"]

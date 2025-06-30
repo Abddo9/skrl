@@ -118,8 +118,22 @@ agent = MAPPO(possible_agents=env.possible_agents,
 
 
 # configure and instantiate the RL trainer
-cfg_trainer = {"timesteps": 36000, "headless": True}
-trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
+evaluate = False
+checkpoint = '...../best_agent.pt'  
 
-# start training
-trainer.train()
+if evaluate and checkpoint:
+    agent.load(checkpoint)
+
+if not evaluate:
+    cfg_trainer = {"timesteps": 1000000, "headless": True} #36000
+    trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
+    # start training
+    trainer.train()
+
+if evaluate:
+    # set the agent to evaluation
+    print("Starting evaluation...")
+    cfg_trainer = {"timesteps": 10000, "headless": True}
+    trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
+    # start evaluation
+    trainer.eval()

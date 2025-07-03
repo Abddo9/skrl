@@ -15,7 +15,7 @@ from skrl.utils import set_seed
 
 
 # seed for reproducibility
-set_seed()  # e.g. `set_seed(42)` for fixed seed
+set_seed(42)  # e.g. `set_seed(42)` for fixed seed
 
 
 # define models (stochastic and deterministic models) using mixins
@@ -59,22 +59,6 @@ class Policy(GaussianMixin, Model):
         self.log_std_parameter = nn.Parameter(torch.zeros(self.num_actions))
 
     def encode_objects(self, obs):
-        # start_index = 0
-        # end_indx = self.agent_feature_size
-        # agent_info = obs[:, start_index:end_indx].reshape(obs.shape[0],-1,self.agent_feature_size)
-        
-        # start_index = end_indx
-        # end_indx += self.machine_feature_size*self.num_machines
-        # machines_info = obs[:, start_index: end_indx].reshape(obs.shape[0],-1,self.machine_feature_size)
-
-        # start_index = end_indx
-        # end_indx += self.storage_feature_size*self.num_storage_areas
-        # storages_info = obs[:, start_index:end_indx].reshape(obs.shape[0],-1,self.storage_feature_size)
-
-        # start_index = end_indx
-        # end_indx += self.agent_feature_size*(self.num_agents-1)
-        # other_agents_info = obs[:, start_index:end_indx].reshape(obs.shape[0],-1,self.agent_feature_size)
-        
         B = obs.shape[0]
         idx = 0
         sizes = [
@@ -157,23 +141,6 @@ class Value(DeterministicMixin, Model):
 
         obs = obs.reshape(-1, self.num_agents* self.agent_feature_size + self.num_machines*self.machine_feature_size + self.num_storage_areas*self.storage_feature_size) # (number of agents, agent observation size)
                
-        # start_index = 0
-        # end_indx = self.agent_feature_size
-        # agent_info = obs[:, start_index:end_indx].reshape(-1,1,self.agent_feature_size)
-        
-        # start_index = end_indx
-        # end_indx += self.machine_feature_size*self.num_machines
-        # machines_info = obs[:, start_index: end_indx].reshape(-1, self.num_machines,self.machine_feature_size)
-
-        # start_index = end_indx
-        # end_indx += self.storage_feature_size*self.num_storage_areas
-        # storages_info = obs[:, start_index:end_indx].reshape(-1,self.num_storage_areas,self.storage_feature_size)
-
-        # start_index = end_indx
-        # end_indx += self.agent_feature_size*(self.num_agents-1)
-        # other_agents_info = obs[:, start_index:end_indx].reshape(-1, self.num_agents-1,self.agent_feature_size)
-
-
         B = obs_shape[0]
         idx = 0
         sizes = [
@@ -271,6 +238,9 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/MachineTending/SMAPPO"
+cfg["experiment"]["experiment_name"] = "Z_T15_Dist20_Uncoll0_LongPlsenvS42"
+
+print("Model cfg:", cfg)
 
 agent = MAPPO(possible_agents=env.possible_agents,
               models=models,
@@ -284,13 +254,14 @@ agent = MAPPO(possible_agents=env.possible_agents,
 
 # configure and instantiate the RL trainer
 evaluate = False
-checkpoint = '...../best_agent.pt'  
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/Z_T15_Dist20_Uncoll0/checkpoints/best_agent.pt'  
 
 if evaluate and checkpoint:
     agent.load(checkpoint)
+    print(f"Loaded agent from {checkpoint}")
 
 if not evaluate:
-    cfg_trainer = {"timesteps": 1000000, "headless": True} #36000
+    cfg_trainer = {"timesteps": 2000000, "headless": True} #36000
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
     # start training
     trainer.train()

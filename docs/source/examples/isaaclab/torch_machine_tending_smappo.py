@@ -238,7 +238,7 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/MachineTending/SMAPPO"
-cfg["experiment"]["experiment_name"] = "Z_T15_Dist20_Uncoll0_LongPlsenvS42"
+cfg["experiment"]["experiment_name"] = "test"
 
 print("Model cfg:", cfg)
 
@@ -253,15 +253,15 @@ agent = MAPPO(possible_agents=env.possible_agents,
 
 
 # configure and instantiate the RL trainer
-evaluate = False
-checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/Z_T15_Dist20_Uncoll0/checkpoints/best_agent.pt'  
+evaluate = True
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/MorePartsUncoll.05ResetOnCollisionRev/checkpoints/best_agent.pt'  
 
 if evaluate and checkpoint:
     agent.load(checkpoint)
     print(f"Loaded agent from {checkpoint}")
 
 if not evaluate:
-    cfg_trainer = {"timesteps": 2000000, "headless": True} #36000
+    cfg_trainer = {"timesteps": 6000000, "headless": True} #36000
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
     # start training
     trainer.train()

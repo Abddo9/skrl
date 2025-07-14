@@ -362,16 +362,16 @@ class MAPPO(MultiAgent):
 
                 # storage cumulative collected, delivered and collisions
                 #TODO: do them with a running average like the reward
-                self.track_data('Collected / Total collected (mean)', self._cumulative_collected[finished_episodes].mean().item())
-                self.track_data('Delivered / Total delivered (mean)', self._cumulative_delivered[finished_episodes].mean().item())
-                self.track_data('Collisions / Total collisions (mean)', self._cumulative_collisions[finished_episodes].mean().item())
+                self.track_data('Collected / Total collected (mean)', self._cumulative_collected[finished_episodes][:,0].mean().item())
+                self.track_data('Delivered / Total delivered (mean)', self._cumulative_delivered[finished_episodes][:,0].mean().item())
+                self.track_data('Collisions / Total collisions (mean)', self._cumulative_collisions[finished_episodes][:,0].mean().item())
 
-                self.track_data('Collected / Total collected_reward (mean)', self._cumulative_collected_reward[finished_episodes].mean().item())
-                self.track_data('Delivered / Total delivered_reward (mean)', self._cumulative_delivered_reward[finished_episodes].mean().item())
-                self.track_data('Collisions / Total collisions_reward (mean)', self._cumulative_collisions_reward[finished_episodes].mean().item())
-                self.track_data('Reward / Total ucollected_reward (mean)', self._cumulative_uncollected_reward[finished_episodes].mean().item())
-                self.track_data('Reward / Total distance_to_machine_reward (mean)', self._cumulative_distance_to_machine_reward[finished_episodes].mean().item())
-                self.track_data('Reward / Total distance_to_storage_reward (mean)', self._cumulative_distance_to_storage_reward[finished_episodes].mean().item())
+                self.track_data('Collected / Total collected_reward (mean)', self._cumulative_collected_reward[finished_episodes][:,0].mean().item())
+                self.track_data('Delivered / Total delivered_reward (mean)', self._cumulative_delivered_reward[finished_episodes][:,0].mean().item())
+                self.track_data('Collisions / Total collisions_reward (mean)', self._cumulative_collisions_reward[finished_episodes][:,0].mean().item())
+                self.track_data('Reward / Total ucollected_reward (mean)', self._cumulative_uncollected_reward[finished_episodes][:,0].mean().item())
+                self.track_data('Reward / Total distance_to_machine_reward (mean)', self._cumulative_distance_to_machine_reward[finished_episodes][:,0].mean().item())
+                self.track_data('Reward / Total distance_to_storage_reward (mean)', self._cumulative_distance_to_storage_reward[finished_episodes][:,0].mean().item())
 
                 # reset the cumulative rewards and timesteps
                 self._cumulative_collected[finished_episodes] = 0

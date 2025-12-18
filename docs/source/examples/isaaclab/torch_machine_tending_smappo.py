@@ -30,7 +30,7 @@ class Policy(GaussianMixin, Model):
         self.num_agents = 2
         self.num_machines = 2
         self.num_storage_areas = 1
-        self.agent_feature_size = 7 # pos, lin_vel, ang_vel, has_part
+        self.agent_feature_size = 6 # pos, orientation 4 (quat), lin_vel, has_part # no angular vel
         self.machine_feature_size = 3 # pos, collected
         self.storage_feature_size = 2 # pos
         self.atten_embed_dim = 16
@@ -106,7 +106,7 @@ class Value(DeterministicMixin, Model):
         self.num_agents = 2
         self.num_machines = 2
         self.num_storage_areas = 1
-        self.agent_feature_size = 7 # pos, lin_vel, ang_vel, has_part
+        self.agent_feature_size = 6 # pos, orientation 4 (quat), lin_vel, has_part # no angular vel
         self.machine_feature_size = 3 # pos, collected
         self.storage_feature_size = 2 # pos
         self.atten_embed_dim = 18
@@ -238,7 +238,7 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/MachineTending/SMAPPO"
-cfg["experiment"]["experiment_name"] = "test"
+cfg["experiment"]["experiment_name"] = "NoResetOnColl16_nAngVel_RandArena27_orntZCurr1M"
 
 print("Model cfg:", cfg)
 
@@ -253,15 +253,17 @@ agent = MAPPO(possible_agents=env.possible_agents,
 
 
 # configure and instantiate the RL trainer
-evaluate = True
-checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/MorePartsUncoll.05ResetOnCollisionRev/checkpoints/best_agent.pt'  
+evaluate = False
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/NoResetOnColl16_nAngVel_RandArena6_ornt/checkpoints/best_agent.pt'
 
 if evaluate and checkpoint:
     agent.load(checkpoint)
     print(f"Loaded agent from {checkpoint}")
+    # file = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/MorePartsUncoll.05ResetOnCollisionRev16_2/checkpoints/best_agent_r0p.pth'
+    # torch.save(agent.models['robot_0'], file)
 
 if not evaluate:
-    cfg_trainer = {"timesteps": 6000000, "headless": True} #36000
+    cfg_trainer = {"timesteps": 60000000, "headless": True} #36000
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
     # start training
     trainer.train()

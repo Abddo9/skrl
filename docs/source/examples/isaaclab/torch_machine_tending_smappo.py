@@ -80,10 +80,8 @@ class Policy(GaussianMixin, Model):
 
         agent_info, lidar_info, machines_info, storages_info, other_agents_info = chunks
 
-        rrr = torch.zeros_like(lidar_info)
-
-        rrr = self.lidar_enc(rrr)
-        agent_info = torch.cat([agent_info, rrr], dim=-1)
+        lidar_info = self.lidar_enc(lidar_info)
+        agent_info = torch.cat([agent_info, lidar_info], dim=-1)
         agent_info = self.agent_enc(agent_info)
         machines_info = self.machines_enc(machines_info)
         storages_info = self.storages_enc(storages_info)
@@ -169,11 +167,9 @@ class Value(DeterministicMixin, Model):
             idx += total
 
         agent_info, lidar_info, machines_info, storages_info, other_agents_info = chunks
-
-        rrr = torch.zeros_like(lidar_info)
         
-        rrr = self.lidar_enc(rrr)
-        agent_info = torch.cat([agent_info, rrr], dim=-1)
+        lidar_info = self.lidar_enc(lidar_info)
+        agent_info = torch.cat([agent_info, lidar_info], dim=-1)
 
         agent_info = self.agent_enc(agent_info)
         machines_info = self.machines_enc(machines_info)

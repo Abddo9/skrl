@@ -31,15 +31,18 @@ class Policy(GaussianMixin, Model):
         self.num_machines = 2
         self.num_storage_areas = 1
         self.agent_feature_size = 6 # pos, orientation 4 (quat), lin_vel, has_part # no angular vel
+        self.lidar_feature_size = 10 # 5 rays  2 lidars
+        self.lidar_embed_dim = 8 
         self.machine_feature_size = 3 # pos, collected
         self.storage_feature_size = 2 # pos
         self.atten_embed_dim = 16
         self.attention_heads = 2
 
-        self.agent_enc = nn.Linear(self.agent_feature_size, self.atten_embed_dim)
-        self.machines_enc = nn.Linear(self.machine_feature_size, self.atten_embed_dim)
-        self.storages_enc = nn.Linear(self.storage_feature_size, self.atten_embed_dim)
-        self.other_agents_enc = nn.Linear(self.agent_feature_size, self.atten_embed_dim)
+        self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, self.lidar_embed_dim), nn.ELU())
+        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size + self.lidar_embed_dim, self.atten_embed_dim), nn.ELU())
+        self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.ELU())
+        self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.ELU())
+        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.ELU())
 
         self.machines_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
         self.storages_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
@@ -63,24 +66,28 @@ class Policy(GaussianMixin, Model):
         idx = 0
         sizes = [
             (self.agent_feature_size, 1),  # agent
+            (self.lidar_feature_size, 1),  # lidar
             (self.machine_feature_size, self.num_machines),  # machines
             (self.storage_feature_size, self.num_storage_areas),  # storages
             (self.agent_feature_size, self.num_agents - 1),  # other agents
         ]
 
-        # Unpack efficiently
         chunks = []
         for feature_size, num in sizes:
             total = feature_size * num
             chunks.append(obs[:, idx:idx+total].reshape(B, num, feature_size))
             idx += total
 
-        agent_info, machines_info, storages_info, other_agents_info = chunks
+        agent_info, lidar_info, machines_info, storages_info, other_agents_info = chunks
 
-        agent_info = F.tanh(self.agent_enc(agent_info))
-        machines_info = F.tanh(self.machines_enc(machines_info))
-        storages_info = F.tanh(self.storages_enc(storages_info))
-        other_agents_info = F.tanh(self.other_agents_enc(other_agents_info))
+        rrr = torch.zeros_like(lidar_info)
+
+        rrr = self.lidar_enc(rrr)
+        agent_info = torch.cat([agent_info, rrr], dim=-1)
+        agent_info = self.agent_enc(agent_info)
+        machines_info = self.machines_enc(machines_info)
+        storages_info = self.storages_enc(storages_info)
+        other_agents_info = self.other_agents_enc(other_agents_info)
 
         machines_info,_ = self.machines_attention(agent_info, machines_info, machines_info, need_weights=False)
         storages_info,_ = self.storages_attention(agent_info, storages_info, storages_info, need_weights=False)
@@ -107,15 +114,18 @@ class Value(DeterministicMixin, Model):
         self.num_machines = 2
         self.num_storage_areas = 1
         self.agent_feature_size = 6 # pos, orientation 4 (quat), lin_vel, has_part # no angular vel
+        self.lidar_feature_size = 10 # 5 rays  2 lidars
+        self.lidar_embed_dim = 8 
         self.machine_feature_size = 3 # pos, collected
         self.storage_feature_size = 2 # pos
         self.atten_embed_dim = 18
         self.attention_heads = 3
 
-        self.agent_enc = nn.Linear(self.agent_feature_size, self.atten_embed_dim)
-        self.machines_enc = nn.Linear(self.machine_feature_size, self.atten_embed_dim)
-        self.storages_enc = nn.Linear(self.storage_feature_size, self.atten_embed_dim)
-        self.other_agents_enc = nn.Linear(self.agent_feature_size, self.atten_embed_dim)
+        self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, self.lidar_embed_dim), nn.ELU())
+        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size + self.lidar_embed_dim, self.atten_embed_dim), nn.ELU())
+        self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.ELU())
+        self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.ELU())
+        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.ELU())
 
         self.machines_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
         self.storages_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
@@ -139,12 +149,13 @@ class Value(DeterministicMixin, Model):
     def encode_objects(self, obs):
         obs_shape = obs.shape
 
-        obs = obs.reshape(-1, self.num_agents* self.agent_feature_size + self.num_machines*self.machine_feature_size + self.num_storage_areas*self.storage_feature_size) # (number of agents, agent observation size)
+        obs = obs.reshape(-1, self.agent_feature_size + self.lidar_feature_size + (self.num_agents-1)* self.agent_feature_size + self.num_machines*self.machine_feature_size + self.num_storage_areas*self.storage_feature_size) 
                
         B = obs_shape[0]
         idx = 0
         sizes = [
             (self.agent_feature_size, 1),  # agent
+            (self.lidar_feature_size, 1),  # lidar
             (self.machine_feature_size, self.num_machines),  # machines
             (self.storage_feature_size, self.num_storage_areas),  # storages
             (self.agent_feature_size, self.num_agents - 1),  # other agents
@@ -157,13 +168,17 @@ class Value(DeterministicMixin, Model):
             chunks.append(obs[:, idx:idx+total].reshape(-1, num, feature_size))
             idx += total
 
-        agent_info, machines_info, storages_info, other_agents_info = chunks
-        
+        agent_info, lidar_info, machines_info, storages_info, other_agents_info = chunks
 
-        agent_info = F.tanh(self.agent_enc(agent_info))
-        machines_info = F.tanh(self.machines_enc(machines_info))
-        storages_info = F.tanh(self.storages_enc(storages_info))
-        other_agents_info = F.tanh(self.other_agents_enc(other_agents_info))
+        rrr = torch.zeros_like(lidar_info)
+        
+        rrr = self.lidar_enc(rrr)
+        agent_info = torch.cat([agent_info, rrr], dim=-1)
+
+        agent_info = self.agent_enc(agent_info)
+        machines_info = self.machines_enc(machines_info)
+        storages_info = self.storages_enc(storages_info)
+        other_agents_info = self.other_agents_enc(other_agents_info)
         
         machines_info,_ = self.machines_attention(agent_info, machines_info, machines_info, need_weights=False)
         storages_info,_ = self.storages_attention(agent_info, storages_info, storages_info, need_weights=False)
@@ -182,7 +197,8 @@ class Value(DeterministicMixin, Model):
         obs = inputs["states"]
         if self.encode:
             obs = self.encode_objects(inputs["states"])
-        return self.net(obs), {}
+        output = self.net(obs)
+        return output, {}
 
 
 # load and wrap the environment
@@ -206,7 +222,6 @@ for agent_name in env.possible_agents:
     models[agent_name] = {}
     models[agent_name]["policy"] = Policy(env.observation_space(agent_name), env.action_space(agent_name), device)
     models[agent_name]["value"] = Value(env.state_space(agent_name), env.action_space(agent_name), device)
-
 
 # configure and instantiate the agent (visit its documentation to see all the options)
 # https://skrl.readthedocs.io/en/latest/api/multi_agents/mappo.html#configuration-and-hyperparameters
@@ -238,7 +253,7 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/MachineTending/SMAPPO"
-cfg["experiment"]["experiment_name"] = "NoResetOnColl16_nAngVel_RandArena27_orntZCurr1M"
+cfg["experiment"]["experiment_name"] = "NoResetOnColl16_nAngVel_Arena3_orntZ_RRNois2Lidar5"
 
 print("Model cfg:", cfg)
 
@@ -254,7 +269,7 @@ agent = MAPPO(possible_agents=env.possible_agents,
 
 # configure and instantiate the RL trainer
 evaluate = False
-checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/NoResetOnColl16_nAngVel_RandArena6_ornt/checkpoints/best_agent.pt'
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/FNoResetOnColl16_nAngVel_RandArena27_orntZ/checkpoints/best_agent.pt'
 
 if evaluate and checkpoint:
     agent.load(checkpoint)

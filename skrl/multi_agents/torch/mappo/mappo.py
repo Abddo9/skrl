@@ -336,27 +336,30 @@ class MAPPO(MultiAgent):
                 collected_shape = infos["log"]['collected'].shape
                 
                 self._cumulative_collected = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
-                self._cumulative_delivered = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
                 self._cumulative_collisions = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
                 self._cumulative_collected_reward = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
-                self._cumulative_delivered_reward = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
+                
                 self._cumulative_collisions_reward = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
                 self._cumulative_distance_to_machine_reward = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
-                self._cumulative_distance_to_storage_reward = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
 
-                self._cumulative_uncollected_reward = torch.zeros((collected_shape[1],1), dtype=torch.float32, device=infos["log"]['collected'].device)
+                if "delivered" in infos["log"]:
+                    self._cumulative_delivered = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
+                    self._cumulative_delivered_reward = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
+                    self._cumulative_distance_to_storage_reward = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
+                    self._cumulative_uncollected_reward = torch.zeros((collected_shape[1],1), dtype=torch.float32, device=infos["log"]['collected'].device)
 
-            self._cumulative_collected.add_(infos["log"]['collected'])
-            self._cumulative_delivered.add_(infos["log"]['delivered'])
+            self._cumulative_collected.add_(infos["log"]['collected'])          
             self._cumulative_collisions.add_(infos["log"]['collisions'])
-
             self._cumulative_collected_reward.add_(infos["log"]['collected_reward'])
-            self._cumulative_delivered_reward.add_(infos["log"]['delivered_reward'])
+            
             self._cumulative_collisions_reward.add_(infos["log"]['collisions_reward'])
             self._cumulative_distance_to_machine_reward.add_(infos["log"]['distance_to_machine_reward'])
-            self._cumulative_distance_to_storage_reward.add_(infos["log"]['distance_to_storage_reward'])
             
-            self._cumulative_uncollected_reward.add_(infos["log"]['uncollected_reward'])
+            if "delivered" in infos["log"]:
+                self._cumulative_delivered.add_(infos["log"]['delivered'])
+                self._cumulative_delivered_reward.add_(infos["log"]['delivered_reward'])
+                self._cumulative_uncollected_reward.add_(infos["log"]['uncollected_reward'])
+                self._cumulative_distance_to_storage_reward.add_(infos["log"]['distance_to_storage_reward'])
 
             # check ended episodes
             finished_episodes = (next(iter(terminated.values())) + next(iter(truncated.values()))).squeeze()
@@ -368,29 +371,33 @@ class MAPPO(MultiAgent):
                 for i in range(infos["log"]['collected'].shape[0]):
 
                     self.track_data(f'Collected / Total collected {i} (mean)', self._cumulative_collected[i, finished_episodes].mean().item())
-                    self.track_data(f'Delivered / Total delivered {i} (mean)', self._cumulative_delivered[i, finished_episodes].mean().item())
                     self.track_data(f'Collisions / Total collisions {i} (mean)', self._cumulative_collisions[i, finished_episodes].mean().item())
 
                     self.track_data(f'Collected / Total collected_reward {i} (mean)', self._cumulative_collected_reward[i, finished_episodes].mean().item())
-                    self.track_data(f'Delivered / Total delivered_reward {i} (mean)', self._cumulative_delivered_reward[i, finished_episodes].mean().item())
                     self.track_data(f'Collisions / Total collisions_reward {i} (mean)', self._cumulative_collisions_reward[i, finished_episodes].mean().item())
                     self.track_data(f'Reward / Total distance_to_machine_reward {i} (mean)', self._cumulative_distance_to_machine_reward[i, finished_episodes].mean().item())
-                    self.track_data(f'Reward / Total distance_to_storage_reward {i} (mean)', self._cumulative_distance_to_storage_reward[i, finished_episodes].mean().item())
 
-                self.track_data('Reward / Total ucollected_reward (mean)', self._cumulative_uncollected_reward[finished_episodes].mean().item())
+                    if "delivered" in infos["log"]:
+                        self.track_data(f'Delivered / Total delivered {i} (mean)', self._cumulative_delivered[i, finished_episodes].mean().item())
+                        self.track_data(f'Delivered / Total delivered_reward {i} (mean)', self._cumulative_delivered_reward[i, finished_episodes].mean().item())
+                        self.track_data(f'Reward / Total distance_to_storage_reward {i} (mean)', self._cumulative_distance_to_storage_reward[i, finished_episodes].mean().item())
+
+                if "uncollected_reward" in infos["log"]:
+                    self.track_data('Reward / Total ucollected_reward (mean)', self._cumulative_uncollected_reward[finished_episodes].mean().item())
 
                 # reset the cumulative rewards and timesteps
                 self._cumulative_collected[:,finished_episodes] = 0
-                self._cumulative_delivered[:,finished_episodes] = 0
                 self._cumulative_collisions[:,finished_episodes] = 0
 
                 self._cumulative_collected_reward[:,finished_episodes] = 0
-                self._cumulative_delivered_reward[:,finished_episodes] = 0
                 self._cumulative_collisions_reward[:,finished_episodes] = 0
                 self._cumulative_distance_to_machine_reward[:,finished_episodes] = 0
-                self._cumulative_distance_to_storage_reward[:,finished_episodes] = 0
-
-                self._cumulative_uncollected_reward[finished_episodes] = 0
+                
+                if "delivered" in infos["log"]:
+                    self._cumulative_delivered[:,finished_episodes] = 0
+                    self._cumulative_delivered_reward[:,finished_episodes] = 0
+                    self._cumulative_distance_to_storage_reward[:,finished_episodes] = 0
+                    self._cumulative_uncollected_reward[finished_episodes] = 0
 
         if self.memories:
             shared_states = infos["shared_states"]

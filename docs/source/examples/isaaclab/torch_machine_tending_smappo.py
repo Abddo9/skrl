@@ -490,7 +490,7 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/MachineTending/SMAPPO"
-cfg["experiment"]["experiment_name"] = "TNoReVNoResetOnColl128_nAngVel_Arena3_orntZ_Nois2Lidar5Col1Cur3_2_5"
+cfg["experiment"]["experiment_name"] = "TFixOrien_128_Lidar5Col1_2M_1S_RandspeedPen1"
 
 print("Model cfg:", cfg)
 
@@ -505,8 +505,8 @@ agent = MAPPO(possible_agents=env.possible_agents,
 
 
 # configure and instantiate the RL trainer
-evaluate = True
-checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/NoReVNoResetOnColl128_nAngVel_Arena3_orntZ_Nois2Lidar5Col1Cur3_2_5/checkpoints/best_agent.pt'
+evaluate = False
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/FixOrien_128_Lidar5Col1_2M_1S_Rand/checkpoints/best_agent.pt'
 
 if evaluate and checkpoint:
     agent.load(checkpoint)

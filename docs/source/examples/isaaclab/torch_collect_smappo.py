@@ -246,7 +246,7 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/Collect/SMAPPO"
-cfg["experiment"]["experiment_name"] = "Collect_Lidar20_8"
+cfg["experiment"]["experiment_name"] = "Collect_overspeed008_cols015_Colt50"
 
 print("Model cfg:", cfg)
 

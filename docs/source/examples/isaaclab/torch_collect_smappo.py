@@ -7,16 +7,103 @@ from skrl.envs.loaders.torch import load_isaaclab_env
 from skrl.multi_agents.torch.mappo import MAPPO, MAPPO_DEFAULT_CONFIG
 from skrl.envs.wrappers.torch import wrap_env
 from skrl.memories.torch import RandomMemory
-from skrl.models.torch import DeterministicMixin, GaussianMixin, Model
+ from skrl.models.torch import DeterministicMixin, GaussianMixin, BetaMixin, Model
 from skrl.resources.preprocessors.torch import RunningStandardScaler
 from skrl.resources.schedulers.torch import KLAdaptiveRL
 from skrl.trainers.torch import SequentialTrainer
 from skrl.utils import set_seed
+import gymnasium as gym
 
 
 # seed for reproducibility
 set_seed(42)  # e.g. `set_seed(42)` for fixed seed
 
+class BetaPolicy(BetaMixin, Model):
+    def __init__(self, observation_space, action_space, device, clip_actions=False,
+                 clip_log_std=True, min_log_std=-20, max_log_std=2, reduction="sum"):
+        Model.__init__(self, observation_space, action_space, device)
+        BetaMixin.__init__(self, reduction)
+
+        self.encode = True
+        self.debug = False
+
+        self.num_agents = 2
+        self.agent_feature_size = 5 
+        self.lidar_feature_size = 10 # 5 rays  2 lidars
+        self.lidar_embed_dim = 4 
+        self.machine_feature_size = 2 # pos, collected
+        self.atten_embed_dim = 16
+        self.attention_heads = 2
+
+        self.lidar_enc = nn.Sequential(nn.LayerNorm(self.lidar_feature_size), nn.Linear(self.lidar_feature_size, self.lidar_embed_dim), nn.Tanh(), nn.LayerNorm(self.lidar_embed_dim))
+        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size + self.lidar_embed_dim, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
+        self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
+        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
+
+        self.agents_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
+        
+        # LayerNorm after attention
+        self.agents_attn_norm = nn.LayerNorm(self.atten_embed_dim)
+
+        size = self.atten_embed_dim*3
+        if not self.encode:
+            size = self.num_observations
+
+        self.base = nn.Sequential(nn.Linear(size, 512),
+                                 nn.Tanh(),
+                                 nn.LayerNorm(512),
+                                 nn.Linear(512, 256),
+                                 nn.Tanh(),
+                                 nn.LayerNorm(256),
+                                 nn.Linear(256, 128),
+                                 nn.Tanh(),
+                                 nn.LayerNorm(128))
+
+        self.alpha = nn.Sequential(nn.Linear(128, self.num_actions), nn.Softplus())
+        self.beta = nn.Sequential(nn.Linear(128, self.num_actions), nn.Softplus())
+
+    def encode_objects(self, obs):
+        B = obs.shape[0]
+        idx = 0
+        sizes = [
+            (self.agent_feature_size, 1),  # agent
+            (self.lidar_feature_size, 1),  # lidar
+            (self.machine_feature_size, 1),  # machines
+            (self.agent_feature_size, self.num_agents - 1),  # other agents
+        ]
+
+        chunks = []
+        for feature_size, num in sizes:
+            total = feature_size * num
+            chunks.append(obs[:, idx:idx+total].reshape(B, num, feature_size))
+            idx += total
+
+        agent_info, lidar_info, machines_info, other_agents_info = chunks
+        lidar_info = self.lidar_enc(lidar_info)
+        agent_info = torch.cat([agent_info, lidar_info], dim=-1)
+        agent_info = self.agent_enc(agent_info)
+
+        machines_info = self.machines_enc(machines_info)
+        
+        other_agents_info = self.other_agents_enc(other_agents_info)
+            
+        other_agents_info,_ = self.agents_attention(agent_info, other_agents_info, other_agents_info, need_weights=False)
+        other_agents_info = self.agents_attn_norm(other_agents_info)
+            
+        env_info = torch.cat([agent_info, machines_info, other_agents_info], axis =1).reshape(obs.shape[0], -1)
+        
+        return env_info
+
+    def compute(self, inputs, role):
+        obs = inputs["states"]
+        if self.encode:
+            obs = self.encode_objects(inputs["states"])
+
+        obs = self.base(obs)
+        alpha = self.alpha(obs) + 1
+        beta = self.beta(obs) + 1
+        
+        return alpha, beta, {}
 
 # define models (stochastic and deterministic models) using mixins
 class Policy(GaussianMixin, Model):
@@ -213,7 +300,8 @@ for agent_name in env.possible_agents:
 models = {}
 for agent_name in env.possible_agents:
     models[agent_name] = {}
-    models[agent_name]["policy"] = Policy(env.observation_space(agent_name), env.action_space(agent_name), device)
+    bounded_action_space = gym.spaces.Box(-0.8, 0.8, shape=env.action_spaces[agent_name].shape)
+    models[agent_name]["policy"] = BetaPolicy(env.observation_space(agent_name), bounded_action_space, device)
     models[agent_name]["value"] = Value(env.state_space(agent_name), env.action_space(agent_name), device)
 
 # configure and instantiate the agent (visit its documentation to see all the options)
@@ -246,7 +334,7 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/Collect/SMAPPO"
-cfg["experiment"]["experiment_name"] = "Collect_overspeed008_cols015_Colt50"
+cfg["experiment"]["experiment_name"] = "256Collect_Beta08_Colt100_T15_TP001"
 
 print("Model cfg:", cfg)
 
@@ -262,7 +350,7 @@ agent = MAPPO(possible_agents=env.possible_agents,
 
 # configure and instantiate the RL trainer
 evaluate = False
-checkpoint = '/home/wahabu/skrl/runs/torch/Collect/SMAPPO/CollectDefault/checkpoints/best_agent.pt'
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/128_Lidar5Col15_2M_1S_Rand100_Curr100k_SameMpen02/checkpoints/best_agent.pt'
 
 if evaluate and checkpoint:
     agent.load(checkpoint)

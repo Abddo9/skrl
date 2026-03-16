@@ -348,6 +348,12 @@ class MAPPO(MultiAgent):
                     self._cumulative_distance_to_storage_reward = torch.zeros(collected_shape, dtype=torch.float32, device=infos["log"]['collected'].device)
                     self._cumulative_uncollected_reward = torch.zeros((collected_shape[1],1), dtype=torch.float32, device=infos["log"]['collected'].device)
 
+                if "new_collisions_reward" in infos["log"]:
+                    self._cumulative_new_collisions_reward = torch.zeros((collected_shape), dtype=torch.float32, device=infos["log"]['collected'].device)
+                if "collisions_duration" in infos["log"]:
+                    self._cumulative_collisions_duration = torch.zeros((collected_shape), dtype=torch.float32, device=infos["log"]['collected'].device)
+
+
             self._cumulative_collected.add_(infos["log"]['collected'])          
             self._cumulative_collisions.add_(infos["log"]['collisions'])
             self._cumulative_collected_reward.add_(infos["log"]['collected_reward'])
@@ -360,6 +366,11 @@ class MAPPO(MultiAgent):
                 self._cumulative_delivered_reward.add_(infos["log"]['delivered_reward'])
                 self._cumulative_uncollected_reward.add_(infos["log"]['uncollected_reward'])
                 self._cumulative_distance_to_storage_reward.add_(infos["log"]['distance_to_storage_reward'])
+
+            if "new_collisions_reward" in infos["log"]:
+                self._cumulative_new_collisions_reward.add_(infos["log"]['new_collisions_reward'])
+            if "collisions_duration" in infos["log"]:
+                self._cumulative_collisions_duration.add_(infos["log"]['collisions_duration'])
 
             # check ended episodes
             finished_episodes = (next(iter(terminated.values())) + next(iter(truncated.values()))).squeeze()
@@ -382,6 +393,11 @@ class MAPPO(MultiAgent):
                         self.track_data(f'Delivered / Total delivered_reward {i} (mean)', self._cumulative_delivered_reward[i, finished_episodes].mean().item())
                         self.track_data(f'Reward / Total distance_to_storage_reward {i} (mean)', self._cumulative_distance_to_storage_reward[i, finished_episodes].mean().item())
 
+                    if "new_collisions_reward" in infos["log"]:
+                        self.track_data(f'Collisions / Total new_collisions_reward {i} (mean)', self._cumulative_new_collisions_reward[i, finished_episodes].mean().item())
+                    if "collisions_duration" in infos["log"]:
+                        self.track_data(f'Collisions / Total collisions_duration {i} (mean)', self._cumulative_collisions_duration[i, finished_episodes].mean().item())
+
                 if "uncollected_reward" in infos["log"]:
                     self.track_data('Reward / Total ucollected_reward (mean)', self._cumulative_uncollected_reward[finished_episodes].mean().item())
 
@@ -398,6 +414,11 @@ class MAPPO(MultiAgent):
                     self._cumulative_delivered_reward[:,finished_episodes] = 0
                     self._cumulative_distance_to_storage_reward[:,finished_episodes] = 0
                     self._cumulative_uncollected_reward[finished_episodes] = 0
+
+                if "new_collisions_reward" in infos["log"]:
+                    self._cumulative_new_collisions_reward[:,finished_episodes] = 0
+                if "collisions_duration" in infos["log"]:
+                    self._cumulative_collisions_duration[:,finished_episodes] = 0
 
         if self.memories:
             shared_states = infos["shared_states"]

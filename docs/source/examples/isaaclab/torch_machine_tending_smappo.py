@@ -132,14 +132,40 @@ class Policy(GaussianMixin, Model):
         self.num_machines = 2
         self.num_storage_areas = 1
         self.agent_feature_size = 6 # pos, orientation 4 (quat), lin_vel, has_part # no angular vel
-        self.lidar_feature_size = 10 # 5 rays  2 lidars
+        self.lidar_feature_size = 540 # 5 rays  2 lidars
         self.lidar_embed_dim = 8 
         self.machine_feature_size = 3 # pos, collected
         self.storage_feature_size = 2 # pos
         self.atten_embed_dim = 16
         self.attention_heads = 2
 
-        self.lidar_enc = nn.Sequential(nn.LayerNorm(self.lidar_feature_size), nn.Linear(self.lidar_feature_size, self.lidar_embed_dim), nn.Tanh(), nn.LayerNorm(self.lidar_embed_dim))
+        self.use_lidar_cnn = True
+
+        if self.use_lidar_cnn:
+            self.lidar_enc = nn.Sequential(   # input 540
+                nn.Conv1d(1, 8, kernel_size=3), # 540 -> 538
+                nn.ReLU(),
+                nn.MaxPool1d(4), # 538 -> 134
+                
+                nn.Conv1d(8, 8, kernel_size=3), # 134 -> 132
+                nn.ReLU(),
+                nn.MaxPool1d(4), # 132 -> 33
+
+                nn.Conv1d(8, 8, kernel_size=3),   # 33 -> 31
+                nn.ReLU(),
+                nn.MaxPool1d(4), # 31 -> 7
+
+                nn.Flatten(),
+                nn.Linear(7*8, self.lidar_embed_dim), 
+                nn.ReLU(),
+                nn.LayerNorm(self.lidar_embed_dim)  
+            )
+        else:
+            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 64), nn.Tanh(),
+                            nn.Linear(64, 32), nn.Tanh(),
+                            nn.Linear(32, self.lidar_embed_dim), nn.Tanh(),
+                            nn.LayerNorm(self.lidar_embed_dim))
+                            
         self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size + self.lidar_embed_dim, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
         self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
         self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
@@ -190,6 +216,7 @@ class Policy(GaussianMixin, Model):
         agent_info, lidar_info, machines_info, storages_info, other_agents_info = chunks
 
         lidar_info = self.lidar_enc(lidar_info)
+        lidar_info = lidar_info.unsqueeze(1)
 
         agent_info = torch.cat([agent_info, lidar_info], dim=-1)
 
@@ -234,14 +261,40 @@ class Value(DeterministicMixin, Model):
         self.num_machines = 2
         self.num_storage_areas = 1
         self.agent_feature_size = 6 # pos, orientation 4 (quat), lin_vel, has_part # no angular vel
-        self.lidar_feature_size = 10 # 5 rays  2 lidars
+        self.lidar_feature_size = 540 # 5 rays  2 lidars
         self.lidar_embed_dim = 8 
         self.machine_feature_size = 3 # pos, collected
         self.storage_feature_size = 2 # pos
         self.atten_embed_dim = 18
         self.attention_heads = 3
 
-        self.lidar_enc = nn.Sequential(nn.LayerNorm(self.lidar_feature_size),nn.Linear(self.lidar_feature_size, self.lidar_embed_dim), nn.Tanh(), nn.LayerNorm(self.lidar_embed_dim))
+        self.use_lidar_cnn = True
+
+        if self.use_lidar_cnn:
+            self.lidar_enc = nn.Sequential(   # input 540
+                nn.Conv1d(1, 8, kernel_size=3), # 540 -> 538
+                nn.ReLU(),
+                nn.MaxPool1d(4), # 538 -> 134
+                
+                nn.Conv1d(8, 8, kernel_size=3), # 134 -> 132
+                nn.ReLU(),
+                nn.MaxPool1d(4), # 132 -> 33
+
+                nn.Conv1d(8, 8, kernel_size=3),   # 33 -> 31
+                nn.ReLU(),
+                nn.MaxPool1d(4), # 31 -> 7
+
+                nn.Flatten(),
+                nn.Linear(7*8, self.lidar_embed_dim), 
+                nn.ReLU(),
+                nn.LayerNorm(self.lidar_embed_dim)  
+            )
+        else:
+            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 64), nn.Tanh(),
+                            nn.Linear(64, 32), nn.Tanh(),
+                            nn.Linear(32, self.lidar_embed_dim), nn.Tanh(),
+                            nn.LayerNorm(self.lidar_embed_dim))
+        
         self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size + self.lidar_embed_dim, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
         self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
         self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
@@ -297,6 +350,7 @@ class Value(DeterministicMixin, Model):
         agent_info, lidar_info, machines_info, storages_info, other_agents_info = chunks
 
         lidar_info = self.lidar_enc(lidar_info)
+        lidar_info = lidar_info.unsqueeze(1)  
 
         agent_info = torch.cat([agent_info, lidar_info], dim=-1)
         agent_info = self.agent_enc(agent_info)
@@ -393,7 +447,7 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/MachineTending/SMAPPO"
-cfg["experiment"]["experiment_name"] = "RD3_256_Lidar5Col2_NewColl4_Busy150_SharedPVO"
+cfg["experiment"]["experiment_name"] = "RD3_256_Lidar270_3_8_4_FcCol05_NewColl045_Busy150_SharedPVO_TP001"
 
 print("Model cfg:", cfg)
 
@@ -413,7 +467,7 @@ agent.optimizers = {agent_name: shared_optimizer for agent_name in env.possible_
 
 # configure and instantiate the RL trainer
 evaluate = False
-checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/RD3_256_LIDAR10Col1_2M_1S_Beta6_NewColl1_Bsy150_ShrdPVO_PLUSRawLIDAR/checkpoints/best_agent.pt'
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/RD3_256_Lidar5Col2_NewColl4_Busy150_SharedPVO/checkpoints/best_agent.pt'
 
 if evaluate and checkpoint:
     agent.load(checkpoint)

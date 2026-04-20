@@ -271,7 +271,6 @@ class Policy(GaussianMixin, Model):
 
     def compute(self, inputs, role):
         obs = inputs["states"]
-        print("processes robot obs:", obs.shape, obs)
         if self.encode:
             obs = self.encode_objects(inputs["states"])
 
@@ -497,7 +496,7 @@ agent.optimizers = {agent_name: shared_optimizer for agent_name in env.possible_
 
 
 # configure and instantiate the RL trainer
-evaluate = True
+evaluate = False
 checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/RD3_256_NOLIDARCol05_NewColl22_Busy150_SharedPVO_TP001_ReLU_SmartUnColl01_WP_d1/checkpoints/best_agent.pt'
 
 if evaluate and checkpoint:

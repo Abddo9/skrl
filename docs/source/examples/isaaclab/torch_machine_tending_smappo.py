@@ -59,15 +59,15 @@ class BetaPolicy(BetaMixin, Model):
                 nn.LayerNorm(self.lidar_embed_dim)  
             )
         else:
-            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 64), nn.Tanh(),
-                            nn.Linear(64, 32), nn.Tanh(),
-                            nn.Linear(32, self.lidar_embed_dim), nn.Tanh(),
+            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 64), nn.ReLU(),
+                            nn.Linear(64, 32), nn.ReLU(),
+                            nn.Linear(32, self.lidar_embed_dim), nn.ReLU(),
                             nn.LayerNorm(self.lidar_embed_dim))
 
-        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size + self.lidar_embed_dim, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
-        self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
-        self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
-        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
+        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size + self.lidar_embed_dim, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
 
         self.machines_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
         self.storages_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
@@ -83,13 +83,13 @@ class BetaPolicy(BetaMixin, Model):
             size = self.num_observations
 
         self.base = nn.Sequential(nn.Linear(size, 512),
-                                 nn.Tanh(),
+                                 nn.ReLU(),
                                  nn.LayerNorm(512),
                                  nn.Linear(512, 256),
-                                 nn.Tanh(),
+                                 nn.ReLU(),
                                  nn.LayerNorm(256),
                                  nn.Linear(256, 128),
-                                 nn.Tanh(),
+                                 nn.ReLU(),
                                  nn.LayerNorm(128))
 
         self.alpha = nn.Sequential(nn.Linear(128, self.num_actions), nn.Softplus())
@@ -189,15 +189,15 @@ class Policy(GaussianMixin, Model):
                 nn.LayerNorm(self.lidar_embed_dim)  
             )
         else:
-            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 16), nn.Tanh(),
-                            # nn.Linear(16, 16), nn.Tanh(),
-                            nn.Linear(16, self.lidar_embed_dim), nn.Tanh(),
+            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 16), nn.ReLU(),
+                            # nn.Linear(16, 16), nn.ReLU(),
+                            nn.Linear(16, self.lidar_embed_dim), nn.ReLU(),
                             nn.LayerNorm(self.lidar_embed_dim))
                             
-        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size+self.lidar_embed_dim, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
-        self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
-        self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
-        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
+        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size+self.lidar_embed_dim, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
 
         self.machines_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
         self.storages_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
@@ -213,13 +213,13 @@ class Policy(GaussianMixin, Model):
             size = self.num_observations
 
         self.net = nn.Sequential(nn.Linear(size, 512),
-                                 nn.Tanh(),
+                                 nn.ReLU(),
                                  nn.LayerNorm(512),
                                  nn.Linear(512, 256),
-                                 nn.Tanh(),
+                                 nn.ReLU(),
                                  nn.LayerNorm(256),
                                  nn.Linear(256, 128),
-                                 nn.Tanh(),
+                                 nn.ReLU(),
                                  nn.LayerNorm(128),
                                  nn.Linear(128, self.num_actions))
         self.log_std_parameter = nn.Parameter(torch.zeros(self.num_actions))
@@ -319,15 +319,15 @@ class Value(DeterministicMixin, Model):
                 nn.LayerNorm(self.lidar_embed_dim)  
             )
         else:
-            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 16), nn.Tanh(),
-                            # nn.Linear(16, 16), nn.Tanh(),
-                            nn.Linear(16, self.lidar_embed_dim), nn.Tanh(),
+            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 16), nn.ReLU(),
+                            # nn.Linear(16, 16), nn.ReLU(),
+                            nn.Linear(16, self.lidar_embed_dim), nn.ReLU(),
                             nn.LayerNorm(self.lidar_embed_dim))
         
-        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size+self.lidar_embed_dim, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
-        self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
-        self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
-        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.Tanh(), nn.LayerNorm(self.atten_embed_dim))
+        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size+self.lidar_embed_dim, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
 
         self.machines_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
         self.storages_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
@@ -347,11 +347,11 @@ class Value(DeterministicMixin, Model):
             size = self.num_observations
 
         self.net = nn.Sequential(nn.Linear(size, 512),
-                                 nn.Tanh(),
+                                 nn.ReLU(),
                                  nn.Linear(512, 256),
-                                 nn.Tanh(),
+                                 nn.ReLU(),
                                  nn.Linear(256, 128),
-                                 nn.Tanh(),
+                                 nn.ReLU(),
                                  nn.Linear(128, 1))
 
     def encode_objects(self, obs):
@@ -435,8 +435,8 @@ for agent_name in env.possible_agents:
 # https://skrl.readthedocs.io/en/latest/api/multi_agents/mappo.html#models
 
 # 1. Create a single instance of Policy and Value
-bounded_action_space = gym.spaces.Box(-0.8, 0.8, shape=env.action_spaces[agent_name].shape)
-shared_policy = BetaPolicy(env.observation_space(env.possible_agents[0]), bounded_action_space, device)
+# bounded_action_space = gym.spaces.Box(-0.6, 0.6, shape=env.action_spaces[agent_name].shape)
+shared_policy = Policy(env.observation_space(env.possible_agents[0]), env.action_space(env.possible_agents[0]), device)
 shared_value = Value(env.state_space(env.possible_agents[0]), env.action_space(env.possible_agents[0]), device)
 
 models = {}
@@ -477,7 +477,7 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/MachineTending/SMAPPO"
-cfg["experiment"]["experiment_name"] = "RandDecim3_256_Lidar270ConvCol04_2M_1S_Beta8_NewColl6_Busy150_SharedPVO_TP003_SmartUnColl01_WP_d1"
+cfg["experiment"]["experiment_name"] = "TRD3_256_Lidar270_3_8_4_ConvCol1_NewColl25_Busy150_SharedPVO_TP003_ReLU_SmartUnColl01WP_d08TSam001"
 
 print("Model cfg:", cfg)
 
@@ -497,7 +497,7 @@ agent.optimizers = {agent_name: shared_optimizer for agent_name in env.possible_
 
 # configure and instantiate the RL trainer
 evaluate = False
-checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/RD3_256_Lidar270_3_8_4_ConvCol1_NewColl25_Busy150_SharedPVO_TP001_ReLU_SmartUnColl01/checkpoints/best_agent.pt'
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/RD3_256_Lidar270_3_8_4_ConvCol1_NewColl25_Busy150_SharedPVO_TP002_ReLU_SmartUnColl01WP_d1TSam001/checkpoints/best_agent.pt'
 
 if evaluate and checkpoint:
     agent.load(checkpoint)

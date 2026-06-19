@@ -17,7 +17,7 @@ import gymnasium as gym
 
 seed = 1
 use_encoder = True
-MODEL_NAME = "MAPPO_500K_DTnLID120_dec6"
+MODEL_NAME = "SMAPPO_500K_DTnLID120_dec6"
 # seed for reproducibility
 set_seed(seed)  # e.g. `set_seed(42)` for fixed seed
 

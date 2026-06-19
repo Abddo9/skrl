@@ -15,8 +15,11 @@ from skrl.utils import set_seed
 import gymnasium as gym
 
 
+seed = 1
+use_encoder = True
+MODEL_NAME = "MAPPO_500K_DTnLID120_dec6"
 # seed for reproducibility
-set_seed(42)  # e.g. `set_seed(42)` for fixed seed
+set_seed(seed)  # e.g. `set_seed(42)` for fixed seed
 
 class BetaPolicy(BetaMixin, Model):
     def __init__(self, observation_space, action_space, device, clip_actions=False,
@@ -24,7 +27,7 @@ class BetaPolicy(BetaMixin, Model):
         Model.__init__(self, observation_space, action_space, device)
         BetaMixin.__init__(self, reduction)
 
-        self.encode = True
+        self.encode = use_encoder
 
         self.num_agents = 2
         self.num_machines = 2
@@ -154,7 +157,7 @@ class Policy(GaussianMixin, Model):
         Model.__init__(self, observation_space, action_space, device)
         GaussianMixin.__init__(self, clip_actions, clip_log_std, min_log_std, max_log_std, reduction)
 
-        self.encode = True
+        self.encode = use_encoder
 
         self.num_agents = 2
         self.num_machines = 2
@@ -284,7 +287,7 @@ class Value(DeterministicMixin, Model):
         Model.__init__(self, observation_space, action_space, device)
         DeterministicMixin.__init__(self, clip_actions)
 
-        self.encode = True
+        self.encode = use_encoder
 
         self.num_agents = 2
         self.num_machines = 2
@@ -477,7 +480,19 @@ cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg["experiment"]["write_interval"] = 180
 cfg["experiment"]["checkpoint_interval"] = 1800
 cfg["experiment"]["directory"] = "runs/torch/MachineTending/SMAPPO"
-cfg["experiment"]["experiment_name"] = "TRD3_256_Lidar270_3_8_4_ConvCol1_NewColl25_Busy150_SharedPVO_TP003_ReLU_SmartUnColl01WP_d08TSam001"
+cfg["experiment"]["experiment_name"] = "MT2_C1_25_"+MODEL_NAME + "_s" + str(seed)
+cfg["use_encoder"] = use_encoder
+cfg["experiment"]["wandb"] = True
+cfg["experiment"]["wandb_kwargs"] = {
+    "project": "MachineTendingIsaacLab",
+    "entity": "abdalwhab",
+    "name": cfg["experiment"]["experiment_name"],
+    "job_type": "training",
+    "reinit": True,
+    # "Group": "SMAPPO",
+    "dir": cfg["experiment"]["directory"]+"/"+cfg["experiment"]["experiment_name"]+"/wandb",
+    # "config": wandb_config,
+}
 
 print("Model cfg:", cfg)
 
@@ -494,10 +509,18 @@ agent = MAPPO(possible_agents=env.possible_agents,
 shared_optimizer = agent.optimizers[env.possible_agents[0]]
 agent.optimizers = {agent_name: shared_optimizer for agent_name in env.possible_agents}
 
+# shared_state_preprocessor = agent._state_preprocessor[env.possible_agents[0]]
+# agent._state_preprocessor = {agent_name: shared_state_preprocessor for agent_name in env.possible_agents}
+
+# shared_shared_state_preprocessor = agent._shared_state_preprocessor[env.possible_agents[0]]
+# agent._shared_state_preprocessor = {agent_name: shared_shared_state_preprocessor for agent_name in env.possible_agents}
+
+# shared_value_preprocessor = agent._value_preprocessor[env.possible_agents[0]]
+# agent._value_preprocessor = {agent_name: shared_value_preprocessor for agent_name in env.possible_agents}
 
 # configure and instantiate the RL trainer
 evaluate = False
-checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/RD3_256_Lidar270_3_8_4_ConvCol1_NewColl25_Busy150_SharedPVO_TP002_ReLU_SmartUnColl01WP_d1TSam001/checkpoints/best_agent.pt'
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/RD3_256_Lidar270_3_8_4_ConvCol1_NewColl25_Busy150_SharedPVO_TP002_ReLU_SmartUnColl01WP_d1_Hwalls/checkpoints/best_agent.pt'
 
 if evaluate and checkpoint:
     agent.load(checkpoint)
@@ -506,7 +529,7 @@ if evaluate and checkpoint:
     # torch.save(agent.models['robot_0'], file)
 
 if not evaluate:
-    cfg_trainer = {"timesteps": 60000000, "headless": True} #36000
+    cfg_trainer = {"timesteps": 500000, "headless": True} #36000
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
     # start training
     trainer.train()

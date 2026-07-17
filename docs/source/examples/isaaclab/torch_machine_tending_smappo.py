@@ -17,7 +17,7 @@ import gymnasium as gym
 
 seed = 1
 use_encoder = True
-MODEL_NAME = "SMAPPO_500K_DTnLID120_dec6"
+MODEL_NAME = "SMAPPO_dec6_1_12_s1_P1_O02L01A01_Eval"
 # seed for reproducibility
 set_seed(seed)  # e.g. `set_seed(42)` for fixed seed
 
@@ -477,10 +477,10 @@ cfg["shared_state_preprocessor_kwargs"] = {"size": next(iter(env.state_spaces.va
 cfg["value_preprocessor"] = RunningStandardScaler
 cfg["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 # logging to TensorBoard and write checkpoints (in timesteps)
-cfg["experiment"]["write_interval"] = 180
-cfg["experiment"]["checkpoint_interval"] = 1800
+cfg["experiment"]["write_interval"] = 1
+cfg["experiment"]["checkpoint_interval"] = 7200
 cfg["experiment"]["directory"] = "runs/torch/MachineTending/SMAPPO"
-cfg["experiment"]["experiment_name"] = "MT2_C1_25_"+MODEL_NAME + "_s" + str(seed)
+cfg["experiment"]["experiment_name"] = MODEL_NAME + "_s" + str(seed)
 cfg["use_encoder"] = use_encoder
 cfg["experiment"]["wandb"] = True
 cfg["experiment"]["wandb_kwargs"] = {
@@ -519,8 +519,8 @@ agent.optimizers = {agent_name: shared_optimizer for agent_name in env.possible_
 # agent._value_preprocessor = {agent_name: shared_value_preprocessor for agent_name in env.possible_agents}
 
 # configure and instantiate the RL trainer
-evaluate = False
-checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/RD3_256_Lidar270_3_8_4_ConvCol1_NewColl25_Busy150_SharedPVO_TP002_ReLU_SmartUnColl01WP_d1_Hwalls/checkpoints/best_agent.pt'
+evaluate = True
+checkpoint = '/home/wahabu/skrl/runs/torch/MachineTending/SMAPPO/MT2_C1_25_SMAPPO_500K_DTnLID120_dec6_s42/checkpoints/best_agent.pt'
 
 if evaluate and checkpoint:
     agent.load(checkpoint)
@@ -537,7 +537,7 @@ if not evaluate:
 if evaluate:
     # set the agent to evaluation
     print("Starting evaluation...")
-    cfg_trainer = {"timesteps": 10000, "headless": True}
+    cfg_trainer = {"timesteps": 7200, "headless": True}
     trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
     # start evaluation
     trainer.eval()

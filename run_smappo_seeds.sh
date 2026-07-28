@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPEAT_NUM=12
+REPEAT_NUM=3
 
 FILE="docs/source/examples/isaaclab/torch_machine_tending_smappo.py"
 SEEDS=(1 2 3 42 5 6 7 8 9 10)

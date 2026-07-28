@@ -15,7 +15,7 @@ from skrl.utils import set_seed
 import gymnasium as gym
 
 
-seed = 1
+seed = 6
 use_encoder = True
 MODEL_NAME = "SMAPPO_dec6_1_3_s1_P05_O1L01A0_Eval"
 # seed for reproducibility

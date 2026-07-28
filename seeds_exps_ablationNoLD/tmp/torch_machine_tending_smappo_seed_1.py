@@ -17,7 +17,7 @@ import gymnasium as gym
 
 seed = 1
 use_encoder = True
-MODEL_NAME = "noVelSMAPPO_500K_DTnLID120_dec6"
+MODEL_NAME = "noLDSMAPPO_500K_DTnLID120_dec6"
 # seed for reproducibility
 set_seed(seed)  # e.g. `set_seed(42)` for fixed seed
 
@@ -164,43 +164,44 @@ class Policy(GaussianMixin, Model):
         self.num_storage_areas = 1
         self.agent_feature_size = 6 # pos, orientation 4 (quat), lin_vel, has_part # no angular vel
         self.lidar_feature_size = 540 # 5 rays  2 lidars
-        self.lidar_embed_dim = 8 
+        # self.lidar_embed_dim = 8 
         self.machine_feature_size = 3 # pos, collected
         self.storage_feature_size = 2 # pos
         self.atten_embed_dim = 16
         self.attention_heads = 2
 
-        self.use_lidar_cnn = True
+        # self.use_lidar_cnn = True
 
-        if self.use_lidar_cnn:
-            self.lidar_enc = nn.Sequential(   # input 540
-                nn.Conv1d(1, 8, kernel_size=3), # 540 -> 538
-                nn.ReLU(),
-                nn.MaxPool1d(4), # 538 -> 134
+        # if self.use_lidar_cnn:
+        #     self.lidar_enc = nn.Sequential(   # input 540
+        #         nn.Conv1d(1, 8, kernel_size=3), # 540 -> 538
+        #         nn.ReLU(),
+        #         nn.MaxPool1d(4), # 538 -> 134
                 
-                nn.Conv1d(8, 8, kernel_size=3), # 134 -> 132
-                nn.ReLU(),
-                nn.MaxPool1d(4), # 132 -> 33
+        #         nn.Conv1d(8, 8, kernel_size=3), # 134 -> 132
+        #         nn.ReLU(),
+        #         nn.MaxPool1d(4), # 132 -> 33
 
-                nn.Conv1d(8, 8, kernel_size=3),   # 33 -> 31
-                nn.ReLU(),
-                nn.MaxPool1d(4), # 31 -> 7
+        #         nn.Conv1d(8, 8, kernel_size=3),   # 33 -> 31
+        #         nn.ReLU(),
+        #         nn.MaxPool1d(4), # 31 -> 7
 
-                nn.Flatten(),
-                nn.Linear(7*8, self.lidar_embed_dim), 
-                nn.ReLU(),
-                nn.LayerNorm(self.lidar_embed_dim)  
-            )
-        else:
-            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 16), nn.ReLU(),
-                            # nn.Linear(16, 16), nn.ReLU(),
-                            nn.Linear(16, self.lidar_embed_dim), nn.ReLU(),
-                            nn.LayerNorm(self.lidar_embed_dim))
+        #         nn.Flatten(),
+        #         nn.Linear(7*8, self.lidar_embed_dim), 
+        #         nn.ReLU(),
+        #         nn.LayerNorm(self.lidar_embed_dim)  
+        #     )
+        # else:
+            # self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 16), nn.ReLU(),
+            #                 # nn.Linear(16, 16), nn.ReLU(),
+            #                 nn.Linear(16, self.lidar_embed_dim), nn.ReLU(),
+            #                 nn.LayerNorm(self.lidar_embed_dim))
                             
-        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size+self.lidar_embed_dim-2, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        # self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size+self.lidar_embed_dim, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
         self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
         self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
-        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size-2, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
 
         self.machines_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
         self.storages_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
@@ -244,17 +245,14 @@ class Policy(GaussianMixin, Model):
             chunks.append(obs[:, idx:idx+total].reshape(B, num, feature_size))
             idx += total
 
-        agent_info, lidar_info, machines_info, storages_info, other_agents_info = chunks
+        # agent_info, lidar_info, machines_info, storages_info, other_agents_info = chunks
+        agent_info, _, machines_info, storages_info, other_agents_info = chunks
 
-        agent_info = agent_info[:, :, [0,1,2,5]]  # Remove linear velocity
-        other_agents_info = other_agents_info[:, :, [0,1,2,5]]  # Remove linear velocity 
+        # lidar_info = self.lidar_enc(lidar_info)
+        # if self.use_lidar_cnn:
+        #     lidar_info = lidar_info.unsqueeze(1)
 
-        lidar_info = self.lidar_enc(lidar_info)
-        if self.use_lidar_cnn:
-            lidar_info = lidar_info.unsqueeze(1)
-   
-
-        agent_info = torch.cat([agent_info, lidar_info], dim=-1)
+        # agent_info = torch.cat([agent_info, lidar_info], dim=-1)
 
         agent_info = self.agent_enc(agent_info)
 
@@ -298,43 +296,44 @@ class Value(DeterministicMixin, Model):
         self.num_storage_areas = 1
         self.agent_feature_size = 6 # pos, orientation 4 (quat), lin_vel, has_part # no angular vel
         self.lidar_feature_size = 540 # 5 rays  2 lidars
-        self.lidar_embed_dim = 8 
+        # self.lidar_embed_dim = 8 
         self.machine_feature_size = 3 # pos, collected
         self.storage_feature_size = 2 # pos
         self.atten_embed_dim = 18
         self.attention_heads = 3
 
-        self.use_lidar_cnn = True
+        # self.use_lidar_cnn = True
 
-        if self.use_lidar_cnn:
-            self.lidar_enc = nn.Sequential(   # input 540
-                nn.Conv1d(1, 8, kernel_size=3), # 540 -> 538
-                nn.ReLU(),
-                nn.MaxPool1d(4), # 538 -> 134
+        # if self.use_lidar_cnn:
+        #     self.lidar_enc = nn.Sequential(   # input 540
+        #         nn.Conv1d(1, 8, kernel_size=3), # 540 -> 538
+        #         nn.ReLU(),
+        #         nn.MaxPool1d(4), # 538 -> 134
                 
-                nn.Conv1d(8, 8, kernel_size=3), # 134 -> 132
-                nn.ReLU(),
-                nn.MaxPool1d(4), # 132 -> 33
+        #         nn.Conv1d(8, 8, kernel_size=3), # 134 -> 132
+        #         nn.ReLU(),
+        #         nn.MaxPool1d(4), # 132 -> 33
 
-                nn.Conv1d(8, 8, kernel_size=3),   # 33 -> 31
-                nn.ReLU(),
-                nn.MaxPool1d(4), # 31 -> 7
+        #         nn.Conv1d(8, 8, kernel_size=3),   # 33 -> 31
+        #         nn.ReLU(),
+        #         nn.MaxPool1d(4), # 31 -> 7
 
-                nn.Flatten(),
-                nn.Linear(7*8, self.lidar_embed_dim), 
-                nn.ReLU(),
-                nn.LayerNorm(self.lidar_embed_dim)  
-            )
-        else:
-            self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 16), nn.ReLU(),
-                            # nn.Linear(16, 16), nn.ReLU(),
-                            nn.Linear(16, self.lidar_embed_dim), nn.ReLU(),
-                            nn.LayerNorm(self.lidar_embed_dim))
+        #         nn.Flatten(),
+        #         nn.Linear(7*8, self.lidar_embed_dim), 
+        #         nn.ReLU(),
+        #         nn.LayerNorm(self.lidar_embed_dim)  
+        #     )
+        # else:
+        #     self.lidar_enc = nn.Sequential(nn.Linear(self.lidar_feature_size, 16), nn.ReLU(),
+        #                     # nn.Linear(16, 16), nn.ReLU(),
+        #                     nn.Linear(16, self.lidar_embed_dim), nn.ReLU(),
+        #                     nn.LayerNorm(self.lidar_embed_dim))
         
-        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size+self.lidar_embed_dim-2, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        # self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size+self.lidar_embed_dim, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.agent_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
         self.machines_enc = nn.Sequential(nn.Linear(self.machine_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
         self.storages_enc = nn.Sequential(nn.Linear(self.storage_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
-        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size-2, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
+        self.other_agents_enc = nn.Sequential(nn.Linear(self.agent_feature_size, self.atten_embed_dim), nn.ReLU(), nn.LayerNorm(self.atten_embed_dim))
 
         self.machines_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
         self.storages_attention = nn.MultiheadAttention(self.atten_embed_dim, self.attention_heads, batch_first=True)
@@ -383,16 +382,13 @@ class Value(DeterministicMixin, Model):
             chunks.append(obs[:, idx:idx+total].reshape(-1, num, feature_size))
             idx += total
 
-        agent_info, lidar_info, machines_info, storages_info, other_agents_info = chunks
+        agent_info, _, machines_info, storages_info, other_agents_info = chunks
 
-        agent_info = agent_info[:, :, [0,1,2,5]]  # Remove linear velocity 
-        other_agents_info = other_agents_info[:, :, [0,1,2,5]]  # Remove linear velocity
+        # lidar_info = self.lidar_enc(lidar_info)
+        # if self.use_lidar_cnn:
+        #     lidar_info = lidar_info.unsqueeze(1)  
 
-        lidar_info = self.lidar_enc(lidar_info)
-        if self.use_lidar_cnn:
-            lidar_info = lidar_info.unsqueeze(1)  
-
-        agent_info = torch.cat([agent_info, lidar_info], dim=-1)
+        # agent_info = torch.cat([agent_info, lidar_info], dim=-1)
         agent_info = self.agent_enc(agent_info)
 
         machines_info = self.machines_enc(machines_info)

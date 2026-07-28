@@ -2,10 +2,10 @@
 set -euo pipefail
 
 FILE="docs/source/examples/isaaclab/torch_machine_tending_smappo.py"
-SEEDS=(678 888 963) #(1 10 42 60 100 147 555 678 888 963)
-TMP_DIR="seeds_exps_ablationOrient/tmp"
-OUTPUT_DIR="seeds_exps_ablationOrient/logs"
-MODEL_NAME="noOrientSMAPPO_500K_DTnLID120_dec6"
+SEEDS=(1 10 42) #(1 10 42 60 100 147 555 678 888 963)
+TMP_DIR="seeds_exps_ablationNoVel/tmp"
+OUTPUT_DIR="seeds_exps_ablationNoVel/logs"
+MODEL_NAME="noVelSMAPPO_500K_DTnLID120_dec6"
 
 mkdir -p "$TMP_DIR"
 mkdir -p "$OUTPUT_DIR"
